@@ -1,0 +1,65 @@
+-Các bước thực hiện:
+Đề xuất về Sử dụng Kafka lấy dữ liệu trên Twitter
+1. Sử dụng Kafka lấy dữ liệu trên Twitter
+Để sử dụng Kafka để lấy dữ liệu trên Twitter, chúng ta cần thực hiện các bước sau:
++ Thiết lập Kafka.
++ Tạo topic Kafka để lưu trữ dữ liệu từ Twitter.
++ Tạo ứng dụng lấy dữ liệu từ Twitter và đẩy dữ liệu vào Kafka.
+
+Thiết lập Kafka
+Chúng ta có thể cài đặt Kafka trên máy tính cục bộ hoặc sử dụng dịch vụ Kafka đám mây. Để cài đặt Kafka trên máy tính cục bộ, chúng ta có thể tham khảo hướng dẫn cài đặt Kafka tại đây: https://kafka.apache.org/quickstart
+
+Tạo topic Kafka
+
+Sau khi cài đặt Kafka, chúng ta cần tạo topic Kafka để lưu trữ dữ liệu từ Twitter. Chúng ta có thể tạo topic Kafka bằng cách sử dụng lệnh sau:
+
+kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 1 --partitions 1 --topic twitter
+
+Tạo ứng dụng lấy dữ liệu từ Twitter và đẩy dữ liệu vào Kafka
+Chúng ta có thể sử dụng API streaming của Twitter để lấy dữ liệu từ Twitter. Sau khi lấy dữ liệu từ Twitter, chúng ta có thể sử dụng API của Kafka để đẩy dữ liệu vào Kafka.
+
+Dưới đây là một ví dụ về cách sử dụng API streaming của Twitter để lấy dữ liệu từ Twitter và đẩy dữ liệu vào Kafka 
+
+(Python)
+import tweepy
+import json
+import kafka
+
+# Tạo kết nối với Twitter
+auth = tweepy.OAuthHandler("CONSUMER_KEY", "CONSUMER_SECRET")
+auth.set_access_token("ACCESS_TOKEN", "ACCESS_TOKEN_SECRET")
+api = tweepy.API(auth)
+
+# Tạo topic Kafka
+topic = "twitter"
+producer = kafka.KafkaProducer(bootstrap_servers=["localhost:9092"], value_serializer=lambda x: json.dumps(x).encode("utf-8"))
+
+# Lấy dữ liệu từ Twitter
+for tweet in tweepy.Cursor(api.search, q="#covid19", lang="vi").items(100):
+    # Đẩy dữ liệu vào Kafka
+    producer.send(topic, tweet._json)
+
+# Đóng kết nối với Kafka
+producer.close()
+
+2. Sử dụng Structured Streaming trong Spark lấy dữ liệu từ Kafka
+Sau khi lấy dữ liệu từ Twitter và đẩy dữ liệu vào Kafka, chúng ta có thể sử dụng Structured Streaming trong Spark để lấy dữ liệu từ Kafka.
+
+Dưới đây là một ví dụ về cách sử dụng Structured Streaming trong Spark để lấy dữ liệu từ Kafka:
+
+(Python)
+import pyspark
+import kafka
+
+# Tạo spark session
+spark = pyspark.sql.SparkSession.builder.appName("Twitter").getOrCreate()
+
+# Tạo topic Kafka
+topic = "twitter"
+df = spark.readStream.format("kafka").option("kafka.bootstrap.servers", "localhost:9092").option("subscribe", topic).option("startingOffsets", "earliest").load()
+
+# Xử lý dữ liệu
+df.select("text").writeStream.format("console").start()
+
+# Chạy ứng dụng
+spark.streams.awaitTermination()
